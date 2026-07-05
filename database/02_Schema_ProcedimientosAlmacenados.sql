@@ -1,0 +1,731 @@
+-- Prerrequisito: ejecutar 01_Schema_Tablas.sql antes que este script.
+/* ════════════════════════════════════════════════════════════════════════
+   SECCIÓN 7 — PROCEDIMIENTOS ALMACENADOS
+   Patrón: usp_Listar<Entidad> / usp_Obtener<Entidad> / usp_Insertar<Entidad> /
+           usp_Listar_<Entidad>_X_<EntidadPadre>
+   Todos usan SCOPE_IDENTITY() (nunca @@IDENTITY) y SET NOCOUNT ON.
+   ════════════════════════════════════════════════════════════════════════ */
+
+-- ── TM_CATEGORIA ───────────────────────────────────────────────────────────
+CREATE PROCEDURE usp_ListarCategoria
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDCATEGORIA, CODIGO, NOMBRE, ACTIVO
+    FROM TM_CATEGORIA
+    WHERE ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerCategoria
+    @IDCATEGORIA INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDCATEGORIA, CODIGO, NOMBRE, ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_CATEGORIA
+    WHERE IDCATEGORIA = @IDCATEGORIA;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarCategoria
+    @CODIGO      VARCHAR(20),
+    @NOMBRE      VARCHAR(50),
+    @USUARIOCREA INT,
+    @IDCATEGORIA INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_CATEGORIA (CODIGO, NOMBRE, USUARIOCREA, FECHACREA)
+    VALUES (@CODIGO, @NOMBRE, @USUARIOCREA, GETDATE());
+
+    SET @IDCATEGORIA = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_OBJETIVO ────────────────────────────────────────────────────────────
+CREATE PROCEDURE usp_ListarObjetivo
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDOBJETIVO, CODIGO, NOMBRE, ACTIVO
+    FROM TM_OBJETIVO
+    WHERE ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerObjetivo
+    @IDOBJETIVO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDOBJETIVO, CODIGO, NOMBRE, ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_OBJETIVO
+    WHERE IDOBJETIVO = @IDOBJETIVO;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarObjetivo
+    @CODIGO      VARCHAR(40),
+    @NOMBRE      VARCHAR(60),
+    @USUARIOCREA INT,
+    @IDOBJETIVO  INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_OBJETIVO (CODIGO, NOMBRE, USUARIOCREA, FECHACREA)
+    VALUES (@CODIGO, @NOMBRE, @USUARIOCREA, GETDATE());
+
+    SET @IDOBJETIVO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_ALERGENO ────────────────────────────────────────────────────────────
+CREATE PROCEDURE usp_ListarAlergeno
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDALERGENO, NOMBRE, ACTIVO
+    FROM TM_ALERGENO
+    WHERE ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerAlergeno
+    @IDALERGENO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDALERGENO, NOMBRE, ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_ALERGENO
+    WHERE IDALERGENO = @IDALERGENO;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarAlergeno
+    @NOMBRE      VARCHAR(100),
+    @USUARIOCREA INT,
+    @IDALERGENO  INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_ALERGENO (NOMBRE, USUARIOCREA, FECHACREA)
+    VALUES (@NOMBRE, @USUARIOCREA, GETDATE());
+
+    SET @IDALERGENO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_USUARIO ─────────────────────────────────────────────────────────────
+CREATE PROCEDURE usp_ListarUsuario
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDUSUARIO, NOMBRE, EMAIL, ACTIVO
+    FROM TM_USUARIO
+    WHERE ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerUsuario
+    @IDUSUARIO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDUSUARIO, NOMBRE, EMAIL, ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_USUARIO
+    WHERE IDUSUARIO = @IDUSUARIO;
+END
+GO
+
+-- Requerido por AuthService.login()/estaAutenticado(): la autenticación busca
+-- por EMAIL, no por IDUSUARIO.
+CREATE PROCEDURE usp_ObtenerUsuario_X_Email
+    @EMAIL VARCHAR(254)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDUSUARIO, NOMBRE, EMAIL, PASSWORD, ACTIVO
+    FROM TM_USUARIO
+    WHERE EMAIL = @EMAIL AND ACTIVO = 1;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarUsuario
+    @NOMBRE      VARCHAR(100),
+    @EMAIL       VARCHAR(254),
+    @PASSWORD    VARCHAR(256),
+    @USUARIOCREA INT,
+    @IDUSUARIO   INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_USUARIO (NOMBRE, EMAIL, PASSWORD, USUARIOCREA, FECHACREA)
+    VALUES (@NOMBRE, @EMAIL, @PASSWORD, @USUARIOCREA, GETDATE());
+
+    SET @IDUSUARIO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_PRODUCTO ────────────────────────────────────────────────────────────
+CREATE PROCEDURE usp_ListarProducto
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT P.IDPRODUCTO, P.NOMBRE, P.MARCA, P.IDCATEGORIA, C.NOMBRE AS CATEGORIA,
+           P.IDOBJETIVO, O.NOMBRE AS OBJETIVO, P.PRECIO, P.DESCRIPCION,
+           P.DOSISRECOMENDADA, P.URLIMAGEN, P.REGISTROSANITARIO, P.ENTIDADREGISTRO, P.STOCK, P.ACTIVO
+    FROM TM_PRODUCTO P
+    INNER JOIN TM_CATEGORIA C ON C.IDCATEGORIA = P.IDCATEGORIA
+    INNER JOIN TM_OBJETIVO  O ON O.IDOBJETIVO  = P.IDOBJETIVO
+    WHERE P.ACTIVO = 1
+    ORDER BY P.NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerProducto
+    @IDPRODUCTO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT P.IDPRODUCTO, P.NOMBRE, P.MARCA, P.IDCATEGORIA, C.NOMBRE AS CATEGORIA,
+           P.IDOBJETIVO, O.NOMBRE AS OBJETIVO, P.PRECIO, P.DESCRIPCION,
+           P.DOSISRECOMENDADA, P.URLIMAGEN, P.REGISTROSANITARIO, P.ENTIDADREGISTRO, P.STOCK,
+           P.ACTIVO, P.FECHACREA, P.FECHAMODIFICA
+    FROM TM_PRODUCTO P
+    INNER JOIN TM_CATEGORIA C ON C.IDCATEGORIA = P.IDCATEGORIA
+    INNER JOIN TM_OBJETIVO  O ON O.IDOBJETIVO  = P.IDOBJETIVO
+    WHERE P.IDPRODUCTO = @IDPRODUCTO;
+END
+GO
+
+-- Soporta FiltrosProducto.categoria (catalogo.ts).
+CREATE PROCEDURE usp_Listar_Producto_X_Categoria
+    @IDCATEGORIA INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPRODUCTO, NOMBRE, MARCA, PRECIO, URLIMAGEN, STOCK
+    FROM TM_PRODUCTO
+    WHERE IDCATEGORIA = @IDCATEGORIA AND ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+-- Soporta FiltrosProducto.objetivo y ProductoService.obtenerRecomendaciones().
+CREATE PROCEDURE usp_Listar_Producto_X_Objetivo
+    @IDOBJETIVO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPRODUCTO, NOMBRE, MARCA, PRECIO, URLIMAGEN, STOCK
+    FROM TM_PRODUCTO
+    WHERE IDOBJETIVO = @IDOBJETIVO AND ACTIVO = 1
+    ORDER BY NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarProducto
+    @NOMBRE            VARCHAR(150),
+    @MARCA             VARCHAR(100),
+    @IDCATEGORIA       INT,
+    @IDOBJETIVO        INT,
+    @PRECIO            DECIMAL(10,2),
+    @DESCRIPCION       VARCHAR(500),
+    @DOSISRECOMENDADA  VARCHAR(200),
+    @URLIMAGEN         VARCHAR(500) = NULL,
+    @REGISTROSANITARIO VARCHAR(50)  = NULL,
+    @ENTIDADREGISTRO   VARCHAR(10)  = NULL,
+    @STOCK             INT          = 0,
+    @USUARIOCREA       INT,
+    @IDPRODUCTO        INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_PRODUCTO (
+        NOMBRE, MARCA, IDCATEGORIA, IDOBJETIVO, PRECIO, DESCRIPCION,
+        DOSISRECOMENDADA, URLIMAGEN, REGISTROSANITARIO, ENTIDADREGISTRO, STOCK,
+        USUARIOCREA, FECHACREA
+    )
+    VALUES (
+        @NOMBRE, @MARCA, @IDCATEGORIA, @IDOBJETIVO, @PRECIO, @DESCRIPCION,
+        @DOSISRECOMENDADA, @URLIMAGEN, @REGISTROSANITARIO, @ENTIDADREGISTRO, @STOCK,
+        @USUARIOCREA, GETDATE()
+    );
+
+    SET @IDPRODUCTO = SCOPE_IDENTITY();
+END
+GO
+
+-- Mantenimiento de catálogo (precio, descripción, stock, etc.) sin borrar/recrear el
+-- registro. Hace un SET absoluto de todos los campos editables — pensado para el
+-- formulario de edición de un administrador, NO para aplicar deltas de stock
+-- concurrentes (ver advertencia de concurrencia en usp_ActualizarStockProducto).
+CREATE PROCEDURE usp_ActualizarProducto
+    @IDPRODUCTO        INT,
+    @NOMBRE            VARCHAR(150),
+    @MARCA             VARCHAR(100),
+    @IDCATEGORIA       INT,
+    @IDOBJETIVO        INT,
+    @PRECIO            DECIMAL(10,2),
+    @DESCRIPCION       VARCHAR(500),
+    @DOSISRECOMENDADA  VARCHAR(200),
+    @URLIMAGEN         VARCHAR(500) = NULL,
+    @REGISTROSANITARIO VARCHAR(50)  = NULL,
+    @ENTIDADREGISTRO   VARCHAR(10)  = NULL,
+    @STOCK             INT,
+    @ACTIVO            BIT,
+    @USUARIOMODIFICA   INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE TM_PRODUCTO
+    SET NOMBRE            = @NOMBRE,
+        MARCA             = @MARCA,
+        IDCATEGORIA       = @IDCATEGORIA,
+        IDOBJETIVO        = @IDOBJETIVO,
+        PRECIO            = @PRECIO,
+        DESCRIPCION       = @DESCRIPCION,
+        DOSISRECOMENDADA  = @DOSISRECOMENDADA,
+        URLIMAGEN         = @URLIMAGEN,
+        REGISTROSANITARIO = @REGISTROSANITARIO,
+        ENTIDADREGISTRO   = @ENTIDADREGISTRO,
+        STOCK             = @STOCK,
+        ACTIVO            = @ACTIVO,
+        USUARIOMODIFICA   = @USUARIOMODIFICA,
+        FECHAMODIFICA     = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        THROW 51002, 'usp_ActualizarProducto: no existe ningún producto con el IDPRODUCTO especificado.', 1;
+    END
+END
+GO
+
+-- Ajuste ATÓMICO de stock por delta (venta = negativo, reposición/corrección de
+-- mermas = positivo). A diferencia de usp_ActualizarProducto (SET absoluto, pensado
+-- para el formulario de edición), este procedimiento es seguro bajo concurrencia:
+-- la condición "STOCK + @CANTIDAD >= 0" se evalúa dentro del mismo UPDATE atómico
+-- (SQL Server toma el lock de la fila antes de evaluar el predicado), por lo que
+-- dos ventas simultáneas del mismo producto no pueden generar stock negativo
+-- (sin esta guarda en el WHERE, un patrón "leer stock, validar en el cliente,
+-- luego actualizar" sí sería vulnerable a condición de carrera).
+CREATE PROCEDURE usp_ActualizarStockProducto
+    @IDPRODUCTO      INT,
+    @CANTIDAD        INT,
+    @USUARIOMODIFICA INT,
+    @NUEVOSTOCK      INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE TM_PRODUCTO
+    SET STOCK           = STOCK + @CANTIDAD,
+        USUARIOMODIFICA = @USUARIOMODIFICA,
+        FECHAMODIFICA   = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO
+      AND STOCK + @CANTIDAD >= 0;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        THROW 51003, 'usp_ActualizarStockProducto: stock insuficiente o producto inexistente.', 1;
+    END
+
+    SELECT @NUEVOSTOCK = STOCK FROM TM_PRODUCTO WHERE IDPRODUCTO = @IDPRODUCTO;
+END
+GO
+
+-- ── TD_PRODUCTO_INGREDIENTE ────────────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_ProductoIngrediente_X_Producto
+    @IDPRODUCTO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPRODUCTOINGREDIENTE, INGREDIENTE
+    FROM TD_PRODUCTO_INGREDIENTE
+    WHERE IDPRODUCTO = @IDPRODUCTO AND ACTIVO = 1
+    ORDER BY IDPRODUCTOINGREDIENTE;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarProductoIngrediente
+    @IDPRODUCTO            INT,
+    @INGREDIENTE           VARCHAR(150),
+    @USUARIOCREA           INT,
+    @IDPRODUCTOINGREDIENTE INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TD_PRODUCTO_INGREDIENTE (IDPRODUCTO, INGREDIENTE, USUARIOCREA, FECHACREA)
+    VALUES (@IDPRODUCTO, @INGREDIENTE, @USUARIOCREA, GETDATE());
+
+    SET @IDPRODUCTOINGREDIENTE = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TD_PRODUCTO_CONTRAINDICACION ───────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_ProductoContraindicacion_X_Producto
+    @IDPRODUCTO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPRODUCTOCONTRAINDICACION, DESCRIPCION
+    FROM TD_PRODUCTO_CONTRAINDICACION
+    WHERE IDPRODUCTO = @IDPRODUCTO AND ACTIVO = 1
+    ORDER BY IDPRODUCTOCONTRAINDICACION;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarProductoContraindicacion
+    @IDPRODUCTO                 INT,
+    @DESCRIPCION                VARCHAR(300),
+    @USUARIOCREA                INT,
+    @IDPRODUCTOCONTRAINDICACION INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TD_PRODUCTO_CONTRAINDICACION (IDPRODUCTO, DESCRIPCION, USUARIOCREA, FECHACREA)
+    VALUES (@IDPRODUCTO, @DESCRIPCION, @USUARIOCREA, GETDATE());
+
+    SET @IDPRODUCTOCONTRAINDICACION = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TR_PRODUCTO_ALERGENO ───────────────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_ProductoAlergeno_X_Producto
+    @IDPRODUCTO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT A.IDALERGENO, A.NOMBRE
+    FROM TR_PRODUCTO_ALERGENO PA
+    INNER JOIN TM_ALERGENO A ON A.IDALERGENO = PA.IDALERGENO
+    WHERE PA.IDPRODUCTO = @IDPRODUCTO AND PA.ACTIVO = 1
+    ORDER BY A.NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarProductoAlergeno
+    @IDPRODUCTO         INT,
+    @IDALERGENO         INT,
+    @USUARIOCREA        INT,
+    @IDPRODUCTOALERGENO INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TR_PRODUCTO_ALERGENO (IDPRODUCTO, IDALERGENO, USUARIOCREA, FECHACREA)
+    VALUES (@IDPRODUCTO, @IDALERGENO, @USUARIOCREA, GETDATE());
+
+    SET @IDPRODUCTOALERGENO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_DIAGNOSTICO ─────────────────────────────────────────────────────────
+-- Historial por usuario (Dashboard, HU-10): equivalente a DiagnosticoService.historial().
+CREATE PROCEDURE usp_Listar_Diagnostico_X_Usuario
+    @IDUSUARIO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (10) IDDIAGNOSTICO, FECHA, NIVELESTRES, CALIDADSUENO, IDOBJETIVO,
+           HORASCONCENTRACION, CONDICIONMEDICA
+    FROM TM_DIAGNOSTICO
+    WHERE IDUSUARIO = @IDUSUARIO AND ACTIVO = 1
+    ORDER BY FECHA DESC;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerDiagnostico
+    @IDDIAGNOSTICO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDDIAGNOSTICO, IDUSUARIO, FECHA, NIVELESTRES, CALIDADSUENO, IDOBJETIVO,
+           HORASCONCENTRACION, CONDICIONMEDICA, ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_DIAGNOSTICO
+    WHERE IDDIAGNOSTICO = @IDDIAGNOSTICO;
+END
+GO
+
+-- Reemplaza el campo PerfilCognitivo de Usuario (models/usuario/usuario.ts):
+-- se calcula en runtime a partir del diagnóstico más reciente, tal como indica
+-- el comentario original del modelo TS, en vez de duplicar el dato en TM_USUARIO.
+CREATE PROCEDURE usp_ObtenerPerfilCognitivo_X_Usuario
+    @IDUSUARIO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) NIVELESTRES, CALIDADSUENO, O.NOMBRE AS OBJETIVOPRINCIPAL
+    FROM TM_DIAGNOSTICO D
+    INNER JOIN TM_OBJETIVO O ON O.IDOBJETIVO = D.IDOBJETIVO
+    WHERE D.IDUSUARIO = @IDUSUARIO AND D.ACTIVO = 1
+    ORDER BY D.FECHA DESC;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarDiagnostico
+    @IDUSUARIO          INT,
+    @FECHA              DATETIME,
+    @NIVELESTRES        INT,
+    @CALIDADSUENO       INT,
+    @IDOBJETIVO         INT,
+    @HORASCONCENTRACION INT,
+    @CONDICIONMEDICA    VARCHAR(300) = NULL,
+    @USUARIOCREA        INT,
+    @IDDIAGNOSTICO      INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_DIAGNOSTICO (
+        IDUSUARIO, FECHA, NIVELESTRES, CALIDADSUENO, IDOBJETIVO,
+        HORASCONCENTRACION, CONDICIONMEDICA, USUARIOCREA, FECHACREA
+    )
+    VALUES (
+        @IDUSUARIO, @FECHA, @NIVELESTRES, @CALIDADSUENO, @IDOBJETIVO,
+        @HORASCONCENTRACION, @CONDICIONMEDICA, @USUARIOCREA, GETDATE()
+    );
+
+    SET @IDDIAGNOSTICO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TR_DIAGNOSTICO_ALERGENO ────────────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_DiagnosticoAlergeno_X_Diagnostico
+    @IDDIAGNOSTICO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT A.IDALERGENO, A.NOMBRE
+    FROM TR_DIAGNOSTICO_ALERGENO DA
+    INNER JOIN TM_ALERGENO A ON A.IDALERGENO = DA.IDALERGENO
+    WHERE DA.IDDIAGNOSTICO = @IDDIAGNOSTICO AND DA.ACTIVO = 1
+    ORDER BY A.NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarDiagnosticoAlergeno
+    @IDDIAGNOSTICO         INT,
+    @IDALERGENO            INT,
+    @USUARIOCREA           INT,
+    @IDDIAGNOSTICOALERGENO INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TR_DIAGNOSTICO_ALERGENO (IDDIAGNOSTICO, IDALERGENO, USUARIOCREA, FECHACREA)
+    VALUES (@IDDIAGNOSTICO, @IDALERGENO, @USUARIOCREA, GETDATE());
+
+    SET @IDDIAGNOSTICOALERGENO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TR_DIAGNOSTICO_RECOMENDACION ───────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_DiagnosticoRecomendacion_X_Diagnostico
+    @IDDIAGNOSTICO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT P.IDPRODUCTO, P.NOMBRE, P.MARCA, P.PRECIO, P.URLIMAGEN, P.STOCK
+    FROM TR_DIAGNOSTICO_RECOMENDACION DR
+    INNER JOIN TM_PRODUCTO P ON P.IDPRODUCTO = DR.IDPRODUCTO
+    WHERE DR.IDDIAGNOSTICO = @IDDIAGNOSTICO AND DR.ACTIVO = 1
+    ORDER BY P.NOMBRE;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarDiagnosticoRecomendacion
+    @IDDIAGNOSTICO              INT,
+    @IDPRODUCTO                 INT,
+    @USUARIOCREA                INT,
+    @IDDIAGNOSTICORECOMENDACION INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TR_DIAGNOSTICO_RECOMENDACION (IDDIAGNOSTICO, IDPRODUCTO, USUARIOCREA, FECHACREA)
+    VALUES (@IDDIAGNOSTICO, @IDPRODUCTO, @USUARIOCREA, GETDATE());
+
+    SET @IDDIAGNOSTICORECOMENDACION = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TM_PEDIDO ──────────────────────────────────────────────────────────────
+-- Historial por usuario (Checkout/Dashboard): equivalente a PedidoService.historial().
+CREATE PROCEDURE usp_Listar_Pedido_X_Usuario
+    @IDUSUARIO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (10) IDPEDIDO, NUMEROPEDIDO, FECHAPEDIDO, TOTAL, DIRECCIONENVIO,
+           CIUDADENVIO, METODOPAGO
+    FROM TM_PEDIDO
+    WHERE IDUSUARIO = @IDUSUARIO AND ACTIVO = 1
+    ORDER BY FECHAPEDIDO DESC;
+END
+GO
+
+CREATE PROCEDURE usp_ObtenerPedido
+    @IDPEDIDO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPEDIDO, IDUSUARIO, NUMEROPEDIDO, FECHAPEDIDO, TOTAL, NOMBRECLIENTE,
+           DIRECCIONENVIO, CIUDADENVIO, TELEFONOCONTACTO, METODOPAGO,
+           ACTIVO, FECHACREA, FECHAMODIFICA
+    FROM TM_PEDIDO
+    WHERE IDPEDIDO = @IDPEDIDO;
+END
+GO
+
+CREATE PROCEDURE usp_InsertarPedido
+    @IDUSUARIO        INT,
+    @NUMEROPEDIDO     VARCHAR(50),
+    @FECHAPEDIDO      DATETIME,
+    @TOTAL            DECIMAL(10,2),
+    @NOMBRECLIENTE    VARCHAR(150),
+    @DIRECCIONENVIO   VARCHAR(200),
+    @CIUDADENVIO      VARCHAR(100),
+    @TELEFONOCONTACTO VARCHAR(9),
+    @METODOPAGO       VARCHAR(20),
+    @USUARIOCREA      INT,
+    @IDPEDIDO         INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO TM_PEDIDO (
+        IDUSUARIO, NUMEROPEDIDO, FECHAPEDIDO, TOTAL, NOMBRECLIENTE,
+        DIRECCIONENVIO, CIUDADENVIO, TELEFONOCONTACTO, METODOPAGO,
+        USUARIOCREA, FECHACREA
+    )
+    VALUES (
+        @IDUSUARIO, @NUMEROPEDIDO, @FECHAPEDIDO, @TOTAL, @NOMBRECLIENTE,
+        @DIRECCIONENVIO, @CIUDADENVIO, @TELEFONOCONTACTO, @METODOPAGO,
+        @USUARIOCREA, GETDATE()
+    );
+
+    SET @IDPEDIDO = SCOPE_IDENTITY();
+END
+GO
+
+-- ── TD_PEDIDO_DETALLE ──────────────────────────────────────────────────────
+CREATE PROCEDURE usp_Listar_PedidoDetalle_X_Pedido
+    @IDPEDIDO INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT IDPEDIDODETALLE, IDPRODUCTO, NOMBREPRODUCTO, PRECIOUNITARIO, CANTIDAD
+    FROM TD_PEDIDO_DETALLE
+    WHERE IDPEDIDO = @IDPEDIDO AND ACTIVO = 1
+    ORDER BY IDPEDIDODETALLE;
+END
+GO
+
+-- Inserta la línea de pedido Y descuenta el stock del producto en la MISMA
+-- transacción: si no hay stock suficiente, ninguna de las dos operaciones se
+-- aplica (evita vender productos sin stock). El UPDATE usa la misma guarda
+-- atómica "STOCK >= @CANTIDAD" que usp_ActualizarStockProducto (ver comentario
+-- ahí) para que dos compras simultáneas del mismo producto no puedan agotar el
+-- stock por debajo de cero.
+-- NOTA PARA LA CAPA .NET: esto garantiza atomicidad POR LÍNEA. Si un pedido tiene
+-- varias líneas y una falla por falta de stock, las líneas anteriores de ESE MISMO
+-- pedido ya se habrán confirmado (COMMIT). Para atomicidad de TODO el pedido
+-- (rollback completo si cualquier línea falla), Business.PedidoService debe invocar
+-- usp_InsertarPedido + todos los usp_InsertarPedidoDetalle dentro de una única
+-- transacción ADO.NET/Dapper (SqlTransaction) y hacer rollback manual si cualquier
+-- llamada lanza la excepción de stock insuficiente.
+CREATE PROCEDURE usp_InsertarPedidoDetalle
+    @IDPEDIDO         INT,
+    @IDPRODUCTO        INT,
+    @NOMBREPRODUCTO    VARCHAR(150),
+    @PRECIOUNITARIO    DECIMAL(10,2),
+    @CANTIDAD          INT,
+    @USUARIOCREA       INT,
+    @IDPEDIDODETALLE   INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRANSACTION;
+
+    UPDATE TM_PRODUCTO
+    SET STOCK         = STOCK - @CANTIDAD,
+        FECHAMODIFICA = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO
+      AND STOCK >= @CANTIDAD;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+        THROW 51001, 'usp_InsertarPedidoDetalle: stock insuficiente para completar la venta del producto solicitado.', 1;
+    END
+
+    INSERT INTO TD_PEDIDO_DETALLE (
+        IDPEDIDO, IDPRODUCTO, NOMBREPRODUCTO, PRECIOUNITARIO, CANTIDAD,
+        USUARIOCREA, FECHACREA
+    )
+    VALUES (
+        @IDPEDIDO, @IDPRODUCTO, @NOMBREPRODUCTO, @PRECIOUNITARIO, @CANTIDAD,
+        @USUARIOCREA, GETDATE()
+    );
+
+    SET @IDPEDIDODETALLE = SCOPE_IDENTITY();
+
+    COMMIT TRANSACTION;
+END
+GO
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   NOTAS DE DISEÑO Y AMBIGÜEDADES RESUELTAS (ver también el mensaje de chat)
+   ════════════════════════════════════════════════════════════════════════
+   1. No existe backend .NET/EF en el repo: todo el modelo se derivó de
+      interfaces TypeScript (src/app/models), servicios Angular y Reactive
+      Forms Validators — no de anotaciones .NET/Fluent API reales.
+   2. Usuario.perfilCognitivo NO se materializa como columnas: el propio
+      comentario del modelo TS dice que es "calculado", así que se resuelve
+      con usp_ObtenerPerfilCognitivo_X_Usuario (evita 2FN/3FN violation).
+   3. Pedido.id (string "TXN-...") es un ID de pasarela de pago, no un
+      IDENTITY → se modela como NUMEROPEDIDO (natural key UNIQUE),
+      IDPEDIDO sigue siendo INT IDENTITY interno según el estándar pedido.
+   4. numeroTarjeta (PaymentRequest) NO tiene columna: persistir un número
+      de tarjeta en claro viola PCI-DSS. Si se requiere trazabilidad, se
+      recomienda agregar TOKENPASARELA (VARCHAR) con el token que devuelva
+      la pasarela real, nunca el PAN.
+   5. Categoria, ObjetivoCognitivo y alérgenos se normalizaron como
+      catálogos (TM_CATEGORIA/TM_OBJETIVO/TM_ALERGENO) en vez de VARCHAR +
+      CHECK, porque se reutilizan entre TM_PRODUCTO y TM_DIAGNOSTICO.
+      EntidadRegistro y MetodoPago, en cambio, son enums cerrados de 2-3
+      valores sin diccionario de etiquetas ni reutilización entre tablas
+      → se dejaron como VARCHAR + CHECK por simplicidad.
+   6. USUARIOCREA/USUARIOMODIFICA se dejaron sin FK explícita a TM_USUARIO:
+      en un dominio real suelen apuntar al usuario administrador/staff que
+      ejecuta la operación (no necesariamente un cliente registrado en
+      TM_USUARIO), y el dominio actual no modela esa entidad de staff.
+   7. AUDITORÍA TÉCNICA (integridad transaccional de inventario): se agregó
+      TM_PRODUCTO.STOCK (no existía en el modelo original) más 3 piezas de
+      lógica nuevas:
+        - usp_InsertarPedidoDetalle ahora descuenta STOCK dentro de una
+          transacción explícita (BEGIN TRAN/COMMIT/ROLLBACK), con la guarda
+          atómica "STOCK >= @CANTIDAD" en el propio UPDATE para que dos ventas
+          simultáneas del mismo producto no puedan dejarlo en negativo. Si no
+          alcanza el stock, hace ROLLBACK y lanza THROW 51001 — ni el detalle
+          ni el descuento se aplican.
+        - usp_ActualizarProducto: UPDATE general de catálogo (SET absoluto de
+          todos los campos editables, incluido STOCK) para altas/bajas de
+          inventario administrativas o corrección de precios/descripciones
+          sin borrar y recrear el registro.
+        - usp_ActualizarStockProducto: ajuste de stock por DELTA (venta manual,
+          reposición, merma), con la misma guarda atómica que
+          usp_InsertarPedidoDetalle. Es el camino seguro para cambios de stock
+          concurrentes — usp_ActualizarProducto NO debe usarse para eso, porque
+          su SET absoluto puede pisar (lost update) un cambio de stock aplicado
+          por una venta concurrente entre que el admin lee el valor y lo graba.
+      Pendiente para la capa .NET (fuera del alcance de este script): la
+      atomicidad de UN PEDIDO COMPLETO con varias líneas (rollback total si
+      cualquier línea falla por falta de stock) requiere que
+      Business.PedidoService envuelva usp_InsertarPedido + todos los
+      usp_InsertarPedidoDetalle en una única transacción ADO.NET/Dapper.
+   ════════════════════════════════════════════════════════════════════════ */

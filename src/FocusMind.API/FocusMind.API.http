@@ -1,0 +1,6 @@
+@FocusMind.API_HostAddress = http://localhost:5064
+
+GET {{FocusMind.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
