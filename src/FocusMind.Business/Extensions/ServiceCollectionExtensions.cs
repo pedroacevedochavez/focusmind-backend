@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMotorRecomendacionService, MotorRecomendacionService>();
         services.AddScoped<IDiagnosticoService, DiagnosticoService>();
         services.AddScoped<IDisponibilidadService, DisponibilidadService>();
+        services.AddScoped<IPedidoService, PedidoService>();
 
         return services;
     }

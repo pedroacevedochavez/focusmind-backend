@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IObjetivoRepository, ObjetivoRepository>();
         services.AddScoped<IAlergenoRepository, AlergenoRepository>();
         services.AddScoped<IDiagnosticoRepository, DiagnosticoRepository>();
+        services.AddScoped<IPedidoRepository, PedidoRepository>();
 
         return services;
     }

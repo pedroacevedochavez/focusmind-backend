@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using FocusMind.Business.Services;
 using FocusMind.DTO.Requests;
 using Microsoft.AspNetCore.Authorization;
@@ -5,16 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FocusMind.API.Controllers;
 
-// NOTA DE ALCANCE (HU-17 vs HU-18): este controller hoy SOLO valida disponibilidad — no crea
-// pedidos. La creación real (POST /api/pedidos, transacción ACID con usp_InsertarPedido +
-// usp_InsertarPedidoDetalle, descuento de stock) es HU-18 y todavía no está implementada.
-// Cuando se construya, PedidoService.ConfirmarPedido debe invocar el mismo
-// IDisponibilidadService usado aquí ANTES de abrir su propia transacción — así lo pide
-// explícitamente el informe ("comparte transacción con HU-18") y evita duplicar la regla de
-// negocio de disponibilidad en dos lugares.
+// HU-17 (disponibilidad) + HU-18 (confirmación de pedido con transacción ACID).
 [ApiController]
 [Route("api/pedidos")]
-public sealed class PedidosController(IDisponibilidadService disponibilidadService) : ControllerBase
+public sealed class PedidosController(IDisponibilidadService disponibilidadService, IPedidoService pedidoService) : ControllerBase
 {
     // [Authorize]: el checkout es una operación transaccional crítica y en el Frontend la ruta
     // /checkout ya está detrás de authGuard (HU-11) — solo un usuario autenticado llega a este paso.
@@ -28,5 +23,58 @@ public sealed class PedidosController(IDisponibilidadService disponibilidadServi
         // el detalle por ítem (Motivo) va siempre en el body, disponible o no, para que el
         // Frontend pueda resaltar exactamente qué línea del carrito falló.
         return resultado.TodoDisponible ? Ok(resultado) : BadRequest(resultado);
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> Confirmar(PedidoCrearRequestDto request)
+    {
+        var idUsuario = ObtenerIdUsuarioActual()
+            ?? throw new InvalidOperationException("Token autenticado sin claim de usuario válido.");
+
+        var resultado = await pedidoService.ConfirmarPedidoAsync(request, idUsuario);
+        if (!resultado.Exito)
+        {
+            return resultado.Conflicto
+                ? Conflict(new { error = resultado.MensajeError })
+                : BadRequest(new { error = resultado.MensajeError });
+        }
+
+        return CreatedAtAction(nameof(Obtener), new { id = resultado.Pedido!.IdPedido }, resultado.Pedido);
+    }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> Listar()
+    {
+        var idUsuario = ObtenerIdUsuarioActual()
+            ?? throw new InvalidOperationException("Token autenticado sin claim de usuario válido.");
+
+        var pedidos = await pedidoService.ListarXUsuarioAsync(idUsuario);
+
+        return Ok(pedidos);
+    }
+
+    [HttpGet("{id:int}")]
+    [Authorize]
+    public async Task<IActionResult> Obtener(int id)
+    {
+        var idUsuario = ObtenerIdUsuarioActual()
+            ?? throw new InvalidOperationException("Token autenticado sin claim de usuario válido.");
+
+        var pedido = await pedidoService.ObtenerAsync(id, idUsuario);
+        if (pedido is null)
+        {
+            return NotFound(new { error = "Pedido no encontrado." });
+        }
+
+        return Ok(pedido);
+    }
+
+    private int? ObtenerIdUsuarioActual()
+    {
+        var claim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+        return int.TryParse(claim, out var idUsuario) ? idUsuario : null;
     }
 }
