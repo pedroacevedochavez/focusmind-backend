@@ -36,7 +36,12 @@ public sealed class JwtTokenGenerator(JwtOptions opciones) : IJwtTokenGenerator
 
         try
         {
-            return new JwtSecurityTokenHandler().ValidateToken(token, parametros, out _);
+            // MapInboundClaims = false: evita que "sub"/"email" se re-mapeen a URIs legacy de
+            // .NET (ClaimTypes.NameIdentifier/Email) — mismo motivo que options.MapInboundClaims
+            // en el AddJwtBearer de Program.cs, pero aquí aplica al handler usado manualmente.
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+
+            return handler.ValidateToken(token, parametros, out _);
         }
         catch (SecurityTokenException)
         {

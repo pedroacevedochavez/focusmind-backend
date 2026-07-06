@@ -13,6 +13,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductoService, ProductoService>();
         services.AddScoped<IHealthService, HealthService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IMotorRecomendacionService, MotorRecomendacionService>();
+        services.AddScoped<IDiagnosticoService, DiagnosticoService>();
 
         return services;
     }

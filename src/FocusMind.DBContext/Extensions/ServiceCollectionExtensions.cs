@@ -12,6 +12,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IHealthRepository, HealthRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        services.AddScoped<IObjetivoRepository, ObjetivoRepository>();
+        services.AddScoped<IAlergenoRepository, AlergenoRepository>();
+        services.AddScoped<IDiagnosticoRepository, DiagnosticoRepository>();
 
         return services;
     }

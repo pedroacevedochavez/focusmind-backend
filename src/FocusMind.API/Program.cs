@@ -32,6 +32,12 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Sin esto, JwtSecurityTokenHandler re-mapea claims cortos ("sub", "email") a URIs
+        // legacy de .NET (ClaimTypes.NameIdentifier, etc.) al validar el token — entonces
+        // User.FindFirst(JwtRegisteredClaimNames.Sub) nunca encontraría el claim que
+        // JwtTokenGenerator sí firmó como "sub" literal. Ver también JwtTokenGenerator.Validar.
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
