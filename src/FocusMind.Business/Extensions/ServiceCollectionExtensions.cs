@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IMotorRecomendacionService, MotorRecomendacionService>();
         services.AddScoped<IDiagnosticoService, DiagnosticoService>();
+        services.AddScoped<IDisponibilidadService, DisponibilidadService>();
 
         return services;
     }
