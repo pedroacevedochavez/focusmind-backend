@@ -19,4 +19,13 @@ public sealed class ObjetivoRepository(IDbConnectionFactory connectionFactory) :
             parametros,
             commandType: CommandType.StoredProcedure);
     }
+
+    public async Task<IEnumerable<Objetivo>> ListarAsync()
+    {
+        using var connection = connectionFactory.CreateConnection();
+
+        return await connection.QueryAsync<Objetivo>(
+            "usp_ListarObjetivo",
+            commandType: CommandType.StoredProcedure);
+    }
 }

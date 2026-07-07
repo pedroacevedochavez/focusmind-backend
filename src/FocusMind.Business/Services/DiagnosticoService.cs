@@ -84,7 +84,13 @@ public sealed class DiagnosticoService(
         return resultado;
     }
 
-    public async Task<PerfilCognitivoResponseDto?> ObtenerPerfilCognitivoAsync(int idUsuario)
+    // HU-19: cierra el gap del panel "Mis Recomendaciones" del Dashboard. usp_ObtenerPerfilCognitivo_X_Usuario
+    // (usado para NivelEstres/CalidadSueno/ObjetivoPrincipal) no devuelve IDDIAGNOSTICO — nunca lo necesitó
+    // en HU-16 — así que en vez de alterar ese SP ya desplegado, el IDDIAGNOSTICO del más reciente se resuelve
+    // reutilizando el historial ya ordenado por FECHA DESC (usp_Listar_Diagnostico_X_Usuario, ListarXUsuarioAsync).
+    // Con ese id, se listan sus alergias/recomendaciones vía los 2 métodos nuevos del repositorio (ambos SPs
+    // ya existían y estaban desplegados, solo nunca se habían expuesto). Cero migraciones SQL nuevas.
+    public async Task<DiagnosticoResponseDto?> ObtenerUltimoAsync(int idUsuario)
     {
         var perfil = await diagnosticoRepository.ObtenerPerfilCognitivoXUsuarioAsync(idUsuario);
         if (perfil is null)
@@ -92,11 +98,41 @@ public sealed class DiagnosticoService(
             return null;
         }
 
-        return new PerfilCognitivoResponseDto
+        var historial = await diagnosticoRepository.ListarXUsuarioAsync(idUsuario);
+        var ultimo = historial.FirstOrDefault();
+
+        var alergias = new List<string>();
+        var recomendaciones = new List<ProductoRecomendadoResponseDto>();
+
+        if (ultimo is not null)
         {
+            var alergenos = await diagnosticoRepository.ListarAlergenosAsync(ultimo.IdDiagnostico);
+            alergias = alergenos.Select(a => a.Nombre).ToList();
+
+            var productos = await diagnosticoRepository.ListarRecomendacionesAsync(ultimo.IdDiagnostico);
+            recomendaciones = productos.Select(p => new ProductoRecomendadoResponseDto
+            {
+                IdProducto = p.IdProducto,
+                Nombre = p.Nombre,
+                Marca = p.Marca,
+                Precio = p.Precio,
+                UrlImagen = p.UrlImagen,
+                Stock = p.Stock,
+            }).ToList();
+        }
+
+        return new DiagnosticoResponseDto
+        {
+            IdDiagnostico = ultimo?.IdDiagnostico,
+            Fecha = ultimo?.Fecha ?? DateTime.UtcNow,
             NivelEstres = perfil.NivelEstres,
             CalidadSueno = perfil.CalidadSueno,
-            ObjetivoPrincipal = perfil.ObjetivoPrincipal,
+            Objetivo = perfil.ObjetivoPrincipal,
+            HorasConcentracion = ultimo?.HorasConcentracion ?? 0,
+            CondicionMedica = ultimo?.CondicionMedica,
+            Alergias = alergias,
+            Recomendaciones = recomendaciones,
+            Persistido = true,
         };
     }
 

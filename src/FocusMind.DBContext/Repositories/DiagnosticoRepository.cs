@@ -33,6 +33,32 @@ public sealed class DiagnosticoRepository(IDbConnectionFactory connectionFactory
             commandType: CommandType.StoredProcedure);
     }
 
+    public async Task<IEnumerable<Alergeno>> ListarAlergenosAsync(int idDiagnostico)
+    {
+        using var connection = connectionFactory.CreateConnection();
+
+        var parametros = new DynamicParameters();
+        parametros.Add("@IDDIAGNOSTICO", idDiagnostico);
+
+        return await connection.QueryAsync<Alergeno>(
+            "usp_Listar_DiagnosticoAlergeno_X_Diagnostico",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<IEnumerable<ProductoRecomendado>> ListarRecomendacionesAsync(int idDiagnostico)
+    {
+        using var connection = connectionFactory.CreateConnection();
+
+        var parametros = new DynamicParameters();
+        parametros.Add("@IDDIAGNOSTICO", idDiagnostico);
+
+        return await connection.QueryAsync<ProductoRecomendado>(
+            "usp_Listar_DiagnosticoRecomendacion_X_Diagnostico",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
     // Mismo patrón transaccional que ProductoRepository.InsertarAsync (HU-15): encabezado +
     // N alergias + N recomendaciones en una sola transacción ADO.NET — si algo falla, rollback
     // total (ej. un IDALERGENO o IDPRODUCTO ya no vigente).

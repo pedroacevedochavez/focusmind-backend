@@ -53,6 +53,25 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// HU-19: habilita al Frontend Angular (servido en otro origen/puerto por `ng serve`) a
+// consumir la API. Sin credentials (cookies) porque la sesión viaja como Bearer token en el
+// header Authorization, no como cookie — así se puede usar AllowAnyHeader/AllowAnyMethod sin
+// entrar en conflicto con la restricción de CORS que impide combinar wildcard + credentials.
+// El origen se lee de appsettings.json (Cors:FrontendOrigin) para no hardcodear el puerto;
+// por defecto apunta al puerto estándar de `ng serve` (4200) en local.
+const string FrontendCorsPolicy = "FrontendLocal";
+var frontendOrigin = builder.Configuration["Cors:FrontendOrigin"] ?? "http://localhost:4200";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        policy.WithOrigins(frontendOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -64,6 +83,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Orden requerido por ASP.NET Core: CORS antes de Authentication/Authorization.
+app.UseCors(FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

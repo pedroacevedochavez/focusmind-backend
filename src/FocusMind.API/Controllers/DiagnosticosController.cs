@@ -48,13 +48,13 @@ public sealed class DiagnosticosController(IDiagnosticoService diagnosticoServic
         var idUsuario = ObtenerIdUsuarioActual()
             ?? throw new InvalidOperationException("Token autenticado sin claim de usuario válido.");
 
-        var perfil = await diagnosticoService.ObtenerPerfilCognitivoAsync(idUsuario);
-        if (perfil is null)
+        var ultimo = await diagnosticoService.ObtenerUltimoAsync(idUsuario);
+        if (ultimo is null)
         {
             return NotFound(new { error = "Sin diagnósticos registrados" });
         }
 
-        return Ok(perfil);
+        return Ok(ultimo);
     }
 
     private int? ObtenerIdUsuarioActual()

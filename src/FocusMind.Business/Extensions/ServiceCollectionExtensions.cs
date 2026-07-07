@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDiagnosticoService, DiagnosticoService>();
         services.AddScoped<IDisponibilidadService, DisponibilidadService>();
         services.AddScoped<IPedidoService, PedidoService>();
+        services.AddScoped<ICatalogoService, CatalogoService>();
 
         return services;
     }
