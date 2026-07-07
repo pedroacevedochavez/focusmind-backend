@@ -2,9 +2,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FocusMind.DTO.Requests;
 
-// No incluye ingredientes/contraindicaciones/alérgenos: administrar esas colecciones
-// queda fuera de alcance de esta historia (ver nota en ProductoService.ActualizarAsync).
-public sealed class ProductoActualizarRequestDto
+// HU-21 — Transparencia sanitaria persistente: hasta HU-15/HU-20 este DTO no incluía
+// Ingredientes/Contraindicaciones/AlergenoIds, así que un PUT nunca podía corregir esos datos
+// sanitarios (solo quedaban fijos desde la creación del producto). Ahora se administran igual
+// que en ProductoCrearRequestDto — misma validación, mismos límites — y ProductoService las
+// resincroniza en la misma transacción del UPDATE (ver ProductoRepository.ActualizarAsync).
+public sealed class ProductoActualizarRequestDto : IValidatableObject
 {
     [Required, MinLength(2), StringLength(150)]
     public string Nombre { get; set; } = string.Empty;
@@ -40,4 +43,18 @@ public sealed class ProductoActualizarRequestDto
     public int Stock { get; set; }
 
     public bool Activo { get; set; } = true;
+
+    [MaxLength(50)]
+    public List<string> Ingredientes { get; set; } = [];
+
+    [MaxLength(50)]
+    public List<string> Contraindicaciones { get; set; } = [];
+
+    // IDs de TM_ALERGENO ya existentes (catálogo), no texto libre.
+    [MaxLength(50)]
+    public List<int> AlergenoIds { get; set; } = [];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        ProductoListasSanitariasValidacion.Validar(
+            Ingredientes, Contraindicaciones, nameof(Ingredientes), nameof(Contraindicaciones));
 }

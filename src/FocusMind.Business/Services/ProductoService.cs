@@ -93,9 +93,11 @@ public sealed class ProductoService(IProductoRepository productoRepository) : IP
         return ResultadoProducto.Ok(detalle!);
     }
 
-    // NOTA DE ALCANCE: no administra ingredientes/contraindicaciones/alérgenos (ver
-    // ProductoActualizarRequestDto) — gestionar esas colecciones queda para un incremento
-    // futuro (sub-recursos propios, ej. PUT /api/productos/:id/ingredientes).
+    // HU-21 — Transparencia sanitaria persistente: cierra el gap dejado en HU-15/HU-20 (ver
+    // historial de ProductoActualizarRequestDto). Ingredientes/Contraindicaciones/AlergenoIds
+    // ahora se resincronizan en la MISMA transacción del UPDATE del producto (overload de
+    // ActualizarAsync en ProductoRepository) — no queda un producto con datos sanitarios
+    // actualizados pero alérgenos/contraindicaciones desactualizados, ni viceversa.
     public async Task<ResultadoProducto> ActualizarAsync(int idProducto, ProductoActualizarRequestDto dto, int? usuarioModifica)
     {
         var errorAbet2 = ValidarRegistroSanitario(dto.RegistroSanitario, dto.EntidadRegistro);
@@ -121,7 +123,8 @@ public sealed class ProductoService(IProductoRepository productoRepository) : IP
             Activo = dto.Activo,
         };
 
-        var actualizado = await productoRepository.ActualizarAsync(producto, usuarioModifica);
+        var actualizado = await productoRepository.ActualizarAsync(
+            producto, dto.Ingredientes, dto.Contraindicaciones, dto.AlergenoIds, usuarioModifica);
         if (!actualizado)
         {
             return ResultadoProducto.NoExiste("No existe ningún producto con el id especificado.");

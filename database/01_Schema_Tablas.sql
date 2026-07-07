@@ -175,9 +175,18 @@ CREATE TABLE TR_PRODUCTO_ALERGENO (
     FECHACREA          DATETIME NOT NULL DEFAULT (GETDATE()),
     FECHAMODIFICA      DATETIME NULL,
     CONSTRAINT FK_TR_PRODUCTOALERGENO_TM_PRODUCTO FOREIGN KEY (IDPRODUCTO) REFERENCES TM_PRODUCTO (IDPRODUCTO),
-    CONSTRAINT FK_TR_PRODUCTOALERGENO_TM_ALERGENO FOREIGN KEY (IDALERGENO) REFERENCES TM_ALERGENO (IDALERGENO),
-    CONSTRAINT UQ_TR_PRODUCTOALERGENO_PAR UNIQUE (IDPRODUCTO, IDALERGENO)
+    CONSTRAINT FK_TR_PRODUCTOALERGENO_TM_ALERGENO FOREIGN KEY (IDALERGENO) REFERENCES TM_ALERGENO (IDALERGENO)
 );
+GO
+
+-- HU-21: UNIQUE filtrado (no una CONSTRAINT de tabla) a propósito — el patrón de baja lógica
+-- de esta tabla (ACTIVO=0 en vez de DELETE, ver usp_Desactivar_ProductoAlergeno_X_Producto)
+-- necesita permitir que el MISMO par (IDPRODUCTO, IDALERGENO) tenga varias filas inactivas en
+-- su historial y solo exigir unicidad entre las filas ACTIVAS. Un UNIQUE de tabla normal
+-- (versión original de este script) ignora ACTIVO y choca contra su propia fila desactivada en
+-- cuanto se reselecciona el mismo alérgeno en una edición posterior — encontrado y corregido en
+-- HU-21 al resincronizar productos reales contra RDS.
+CREATE UNIQUE INDEX UQ_TR_PRODUCTOALERGENO_PAR ON TR_PRODUCTO_ALERGENO (IDPRODUCTO, IDALERGENO) WHERE ACTIVO = 1;
 GO
 
 -- ════════════════════════════════════════════════════════════════════════

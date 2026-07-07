@@ -6,6 +6,18 @@
    Todos usan SCOPE_IDENTITY() (nunca @@IDENTITY) y SET NOCOUNT ON.
    ════════════════════════════════════════════════════════════════════════ */
 
+-- SET QUOTED_IDENTIFIER queda "grabado" en cada procedimiento al momento de su CREATE (a
+-- diferencia de casi cualquier otro SET, que es solo de sesión) — si queda OFF, cualquier
+-- INSERT/UPDATE/DELETE contra una tabla con índice filtrado (ej. TR_PRODUCTO_ALERGENO desde
+-- HU-21) falla en tiempo de ejecución con el error 1934, sin importar el SET de quien llama.
+-- sqlcmd (a diferencia de SSMS/ADO.NET) arranca con QUOTED_IDENTIFIER OFF por defecto, así que
+-- se fija ON explícitamente aquí para que este script produzca el mismo resultado sin importar
+-- la herramienta con la que se ejecute.
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
+
 -- ── TM_CATEGORIA ───────────────────────────────────────────────────────────
 CREATE PROCEDURE usp_ListarCategoria
 AS
@@ -421,6 +433,47 @@ BEGIN
     VALUES (@IDPRODUCTO, @IDALERGENO, @USUARIOCREA, GETDATE());
 
     SET @IDPRODUCTOALERGENO = SCOPE_IDENTITY();
+END
+GO
+
+-- HU-21 — Transparencia sanitaria persistente: baja lógica (nunca DELETE físico) de las filas
+-- vigentes antes de re-insertar la lista editada. Como ACTIVO/USUARIOMODIFICA/FECHAMODIFICA ya
+-- existían en estas 3 tablas (ver 01_Schema_Tablas.sql), cada edición queda como una generación
+-- nueva y con timestamp propio, sin perder nunca la anterior — la propia tabla es el historial
+-- auditable, sin necesitar una tabla de auditoría paralela.
+CREATE PROCEDURE usp_Desactivar_ProductoIngrediente_X_Producto
+    @IDPRODUCTO       INT,
+    @USUARIOMODIFICA  INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE TD_PRODUCTO_INGREDIENTE
+    SET ACTIVO = 0, USUARIOMODIFICA = @USUARIOMODIFICA, FECHAMODIFICA = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO AND ACTIVO = 1;
+END
+GO
+
+CREATE PROCEDURE usp_Desactivar_ProductoContraindicacion_X_Producto
+    @IDPRODUCTO       INT,
+    @USUARIOMODIFICA  INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE TD_PRODUCTO_CONTRAINDICACION
+    SET ACTIVO = 0, USUARIOMODIFICA = @USUARIOMODIFICA, FECHAMODIFICA = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO AND ACTIVO = 1;
+END
+GO
+
+CREATE PROCEDURE usp_Desactivar_ProductoAlergeno_X_Producto
+    @IDPRODUCTO       INT,
+    @USUARIOMODIFICA  INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE TR_PRODUCTO_ALERGENO
+    SET ACTIVO = 0, USUARIOMODIFICA = @USUARIOMODIFICA, FECHAMODIFICA = GETDATE()
+    WHERE IDPRODUCTO = @IDPRODUCTO AND ACTIVO = 1;
 END
 GO
 

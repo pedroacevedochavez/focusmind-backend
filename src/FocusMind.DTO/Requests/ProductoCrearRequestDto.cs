@@ -53,29 +53,7 @@ public sealed class ProductoCrearRequestDto : IValidatableObject
     [MaxLength(50)]
     public List<int> AlergenoIds { get; set; } = [];
 
-    // [StringLength]/[MaxLength] no validan el largo de cada elemento de un List<string> — solo
-    // el conteo. Se valida a mano contra TD_PRODUCTO_INGREDIENTE.INGREDIENTE VARCHAR(150) y
-    // TD_PRODUCTO_CONTRAINDICACION.DESCRIPCION VARCHAR(300) para no depender de un 500 de SQL.
-    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
-    {
-        for (var i = 0; i < Ingredientes.Count; i++)
-        {
-            if (Ingredientes[i].Length > 150)
-            {
-                yield return new ValidationResult(
-                    $"Ingredientes[{i}] excede el máximo de 150 caracteres.",
-                    [nameof(Ingredientes)]);
-            }
-        }
-
-        for (var i = 0; i < Contraindicaciones.Count; i++)
-        {
-            if (Contraindicaciones[i].Length > 300)
-            {
-                yield return new ValidationResult(
-                    $"Contraindicaciones[{i}] excede el máximo de 300 caracteres.",
-                    [nameof(Contraindicaciones)]);
-            }
-        }
-    }
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        ProductoListasSanitariasValidacion.Validar(
+            Ingredientes, Contraindicaciones, nameof(Ingredientes), nameof(Contraindicaciones));
 }

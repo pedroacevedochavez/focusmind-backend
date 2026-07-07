@@ -1,6 +1,18 @@
 -- Prerrequisito: ejecutar 03_Seed_Catalogos.sql antes que este script.
 -- ── 2. Productos (PRODUCTOS_MOCK, data/productos/productos.ts) ─────────────
 
+-- HU-21: TR_PRODUCTO_ALERGENO pasó de UNIQUE(IDPRODUCTO, IDALERGENO) de tabla a un índice
+-- único FILTRADO (WHERE ACTIVO = 1) — ver 01_Schema_Tablas.sql. Este seed no se ve afectado:
+-- inserta cada par (producto, alérgeno) exactamente una vez sobre un esquema vacío, así que el
+-- índice filtrado se comporta igual que el UNIQUE anterior en este caso de uso. Tampoco llama a
+-- ninguno de los 3 usp_Desactivar_Producto*_X_Producto nuevos (esos son exclusivos del flujo de
+-- edición, PUT /api/productos/:id). El SET de abajo se agrega solo por higiene/consistencia con
+-- 02_Schema_ProcedimientosAlmacenados.sql, no porque este script lo necesitara para funcionar.
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
+
 DECLARE @USUARIOSISTEMA INT = 1;
 DECLARE @IDTEMP INT, @IDPRODUCTO INT, @IDCATEGORIA INT, @IDOBJETIVO INT, @IDALERGENO INT;
 

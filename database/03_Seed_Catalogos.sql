@@ -15,7 +15,20 @@
    Pensado para ejecutarse una sola vez sobre un esquema vacío: los
    catálogos (TM_CATEGORIA/TM_OBJETIVO/TM_ALERGENO) tienen UNIQUE en su
    código/nombre, por lo que una segunda ejecución fallaría por duplicados.
+
+   HU-21 (índice único filtrado en TR_PRODUCTO_ALERGENO + SET QUOTED_IDENTIFIER ON en
+   02_Schema_ProcedimientosAlmacenados.sql, ver ese archivo) no requirió ningún cambio
+   funcional aquí: este script solo llama a usp_Insertar* (nunca hace INSERT/UPDATE
+   directo contra una tabla con índice filtrado), y usp_InsertarAlergeno/usp_InsertarObjetivo/
+   usp_InsertarCategoria ya tenían QUOTED_IDENTIFIER ON desde antes de HU-21 (verificado
+   contra RDS). El SET de abajo se agrega solo por higiene/consistencia con el resto de
+   database/, no porque este script lo necesitara para funcionar.
    ════════════════════════════════════════════════════════════════════════ */
+
+SET QUOTED_IDENTIFIER ON;
+GO
+SET ANSI_NULLS ON;
+GO
 
 DECLARE @USUARIOSISTEMA INT = 1; -- Placeholder de usuario/admin que ejecuta el seed.
 DECLARE @IDTEMP         INT;     -- Recibe IDs OUTPUT que no se reutilizan (hijos).

@@ -31,11 +31,12 @@ public sealed class ProductosController(IProductoService productoService) : Cont
         return Ok(producto);
     }
 
-    // NOTA (gap conocido, documentado en HU-15/HU-21): TM_USUARIO todavía no tiene columna de
+    // NOTA (gap conocido, sigue abierto tras HU-21): TM_USUARIO todavía no tiene columna de
     // rol, así que el JWT tampoco lleva claim de rol. [Authorize] aquí exige únicamente "estar
     // autenticado", NO "ser admin". Restringir por rol requiere un incremento futuro: agregar
     // ROL a TM_USUARIO, incluirlo como claim en JwtTokenGenerator, y usar
-    // [Authorize(Roles = "admin")] en su lugar.
+    // [Authorize(Roles = "admin")] en su lugar. HU-21 cubrió la persistencia/trazabilidad de
+    // los datos sanitarios (ingredientes/contraindicaciones/alérgenos), no autorización por rol.
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Crear(ProductoCrearRequestDto request)
