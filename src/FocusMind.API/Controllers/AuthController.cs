@@ -2,11 +2,18 @@ using FocusMind.Business.Services;
 using FocusMind.DTO.Requests;
 using FocusMind.DTO.Responses;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FocusMind.API.Controllers;
 
+// HU-20: los 3 endpoints (register/login/refresh) quedan bajo la política "auth" (10
+// solicitudes/IP/hora, ver Program.cs) — mitiga fuerza bruta de credenciales y abuso de
+// creación de cuentas. Se aplica a nivel de controller, no solo en Login, porque register y
+// refresh también son superficies válidas de ataque (enumeración de emails, robo de refresh
+// tokens por fuerza bruta).
 [ApiController]
 [Route("api/auth")]
+[EnableRateLimiting("auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("register")]

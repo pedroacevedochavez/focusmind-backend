@@ -6,10 +6,10 @@ namespace FocusMind.DTO.Requests;
 // queda fuera de alcance de esta historia (ver nota en ProductoService.ActualizarAsync).
 public sealed class ProductoActualizarRequestDto
 {
-    [Required, MinLength(2)]
+    [Required, MinLength(2), StringLength(150)]
     public string Nombre { get; set; } = string.Empty;
 
-    [Required, MinLength(2)]
+    [Required, MinLength(2), StringLength(100)]
     public string Marca { get; set; } = string.Empty;
 
     [Required]
@@ -21,16 +21,19 @@ public sealed class ProductoActualizarRequestDto
     [Range(0.01, double.MaxValue)]
     public decimal Precio { get; set; }
 
-    [Required]
+    [Required, StringLength(500)]
     public string Descripcion { get; set; } = string.Empty;
 
-    [Required]
+    [Required, StringLength(200)]
     public string DosisRecomendada { get; set; } = string.Empty;
 
+    [StringLength(500)]
     public string? UrlImagen { get; set; }
 
+    [StringLength(50)]
     public string? RegistroSanitario { get; set; }
 
+    [StringLength(10)]
     public string? EntidadRegistro { get; set; }
 
     [Range(0, int.MaxValue)]

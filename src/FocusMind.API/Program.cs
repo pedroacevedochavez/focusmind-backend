@@ -1,8 +1,12 @@
 using System.Text;
+using System.Threading.RateLimiting;
+using FocusMind.API.Middleware;
 using FocusMind.Business.Extensions;
 using FocusMind.Business.Services;
 using FocusMind.DBContext.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,13 +18,35 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
+// HU-20: ningún endpoint de este dominio necesita bodies grandes (el producto más "pesado"
+// es un JSON de texto con listas cortas de ingredientes/alérgenos; las imágenes ya se suben
+// directo a S3 desde el cliente, HU-22, la API solo recibe la URL resultante). Un límite bajo
+// reduce la superficie de un DoS por payload gigante antes de que el body llegue a bind/validar.
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = 1_000_000; // 1 MB
+});
+
 var connectionString = builder.Configuration.GetConnectionString("FocusMindDb")
     ?? throw new InvalidOperationException("La cadena de conexión 'FocusMindDb' no está configurada en appsettings.json.");
 builder.Services.AddDbContextServices(connectionString);
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key no está configurado en appsettings.json.");
+
+// HU-20: HMACSHA256 exige una clave de al menos 256 bits (32 bytes/caracteres ASCII) para que
+// la firma sea resistente a fuerza bruta; una clave corta debilita todo el esquema de auth sin
+// que nada lo detecte en runtime. Falla rápido al arrancar en vez de emitir tokens firmados con
+// una clave débil.
+if (Encoding.UTF8.GetByteCount(jwtKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:Key debe tener al menos 32 bytes (256 bits) para HMACSHA256. Configúrala vía User Secrets " +
+        "en local (dotnet user-secrets set \"Jwt:Key\" \"...\") o AWS Secrets Manager en producción — nunca en appsettings.json.");
+}
+
 var jwtOptions = new JwtOptions(
-    Key: jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key no está configurado en appsettings.json."),
+    Key: jwtKey,
     Issuer: jwtSection["Issuer"] ?? "FocusMind.API",
     Audience: jwtSection["Audience"] ?? "FocusMind.Frontend",
     AccessTokenMinutes: int.TryParse(jwtSection["AccessTokenMinutes"], out var accessMinutes) ? accessMinutes : 15,
@@ -48,10 +74,59 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
+            // HU-20: fija el algoritmo esperado en vez de confiar en el que declare el propio
+            // token — mitiga ataques de "confusión de algoritmo" (p.ej. un token manipulado que
+            // declara "alg":"none" o intenta forzar una verificación distinta a la firma real).
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         };
     });
 
 builder.Services.AddAuthorization();
+
+// HU-20: Microsoft.AspNetCore.RateLimiting ya viene en el shared framework (no requiere NuGet
+// adicional). Dos políticas, alineadas al criterio de aceptación de HU-20:
+//   - "general": 100 solicitudes/IP/15 min, aplicada globalmente vía GlobalLimiter.
+//   - "auth": 10 solicitudes/IP/hora, aplicada solo a /api/auth/* (fuerza bruta de login).
+// Cuando un endpoint tiene [EnableRateLimiting("auth")], AMBAS políticas se evalúan (la global
+// SIEMPRE corre, la de endpoint se suma) — es intencional: los endpoints de auth quedan bajo
+// una capa extra de restricción, no bajo una que reemplaza a la otra.
+static string ObtenerClaveParticionPorIp(HttpContext context) =>
+    context.Connection.RemoteIpAddress?.ToString() ?? "desconocido";
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(ObtenerClaveParticionPorIp(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+        }));
+
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(ObtenerClaveParticionPorIp(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromHours(1),
+            QueueLimit = 0,
+        }));
+
+    options.OnRejected = async (rejectedContext, cancellationToken) =>
+    {
+        // El propio limitador conoce cuánto falta para la siguiente ventana (15 min en
+        // "general", 1 hora en "auth") — se reutiliza en vez de hardcodear un valor que
+        // quedaría desalineado con la política que realmente rechazó la solicitud.
+        var retryAfterSegundos = rejectedContext.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+            ? (int)retryAfter.TotalSeconds
+            : 60;
+        rejectedContext.HttpContext.Response.Headers.RetryAfter = retryAfterSegundos.ToString();
+        await rejectedContext.HttpContext.Response.WriteAsJsonAsync(
+            new { error = "Demasiadas solicitudes. Intenta de nuevo más tarde." },
+            cancellationToken);
+    };
+});
 
 // HU-19: habilita al Frontend Angular (servido en otro origen/puerto por `ng serve`) a
 // consumir la API. Sin credentials (cookies) porque la sesión viaja como Bearer token en el
@@ -84,8 +159,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Orden requerido por ASP.NET Core: CORS antes de Authentication/Authorization.
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
+// Orden requerido por ASP.NET Core: CORS antes de Authentication/Authorization. El rate
+// limiter se coloca apenas después de CORS y antes de Authentication a propósito: rechazar
+// una IP que ya excedió su cuota debe costar lo menos posible (nada de validar JWT primero).
 app.UseCors(FrontendCorsPolicy);
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

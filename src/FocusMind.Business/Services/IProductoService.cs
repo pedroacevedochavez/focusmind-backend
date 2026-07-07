@@ -15,8 +15,6 @@ public sealed record ResultadoProducto(bool Exito, string? MensajeError, bool No
 
 public interface IProductoService
 {
-    Task<IEnumerable<Producto>> ObtenerMuestraAsync(int cantidad = 5);
-
     Task<IEnumerable<ProductoListItemResponseDto>> ListarAsync(ProductoFiltroDto filtro);
 
     Task<ProductoDetalleResponseDto?> ObtenerDetalleAsync(int idProducto);
