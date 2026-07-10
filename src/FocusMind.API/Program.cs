@@ -5,6 +5,7 @@ using FocusMind.Business.Extensions;
 using FocusMind.Business.Services;
 using FocusMind.DBContext.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.IdentityModel.Tokens;
@@ -147,6 +148,20 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Preparación para Elastic Beanstalk: el Application Load Balancer termina TLS y reenvía la
+// petición a la instancia como HTTP simple + cabeceras X-Forwarded-Proto/X-Forwarded-For. Sin
+// esto, Kestrel ve toda petición como HTTP y UseHttpsRedirection() de abajo entra en bucle de
+// redirección contra un ALB que ya fuerza HTTPS en su listener. KnownIPNetworks/KnownProxies se
+// dejan vacíos (en vez de listar la IP del ALB, que no es estática) porque el Security Group de
+// la instancia de EB ya restringe quién puede alcanzarla en primer lugar — ver guía de
+// despliegue para la regla exacta del Security Group.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -156,6 +171,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Debe ir ANTES de UseHttpsRedirection: reescribe HttpContext.Request.Scheme/RemoteIpAddress a
+// partir de X-Forwarded-Proto/X-Forwarded-For para que todo lo que viene después (redirección
+// HTTPS, el propio HSTS de SecurityHeadersMiddleware, el partitioning por IP del rate limiter)
+// vea los valores reales del cliente y no los del ALB.
+app.UseForwardedHeaders();
 
 app.UseHttpsRedirection();
 
