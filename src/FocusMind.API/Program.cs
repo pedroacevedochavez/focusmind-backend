@@ -136,7 +136,7 @@ builder.Services.AddRateLimiter(options =>
 // El origen se lee de appsettings.json (Cors:FrontendOrigin) para no hardcodear el puerto;
 // por defecto apunta al puerto estándar de `ng serve` (4200) en local.
 const string FrontendCorsPolicy = "FrontendLocal";
-var frontendOrigin = builder.Configuration["Cors:FrontendOrigin"] ?? "http://localhost:4200";
+var frontendOrigin = builder.Configuration["Cors:FrontendOrigin"] ?? "https://main.di5bbu5p2ozkb.amplifyapp.com";
 
 builder.Services.AddCors(options =>
 {
