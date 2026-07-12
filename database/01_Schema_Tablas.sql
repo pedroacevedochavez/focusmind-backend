@@ -1,20 +1,10 @@
 /* ════════════════════════════════════════════════════════════════════════
    FocusMind S.A.C. — Esquema de Base de Datos (SQL Server / AWS RDS)
    ════════════════════════════════════════════════════════════════════════
-   Generado a partir del análisis del frontend Angular (src/app/models,
-   src/app/services, src/app/features) del repositorio focusmind-frontend.
-   No existe backend .NET/EF en el repo: el modelo fue inferido de las
-   interfaces TypeScript, los formularios Reactive Forms (Validators) y
-   los datos mock (PRODUCTOS_MOCK). Ver notas de diseño al final del archivo
-   para las decisiones tomadas ante ambigüedades del tipo `string`/`number`.
-
    Convención de prefijos:
      TM_ = Tabla Maestra   (entidad independiente con ciclo de vida propio)
      TD_ = Tabla Detalle   (dependiente 1:N de un padre; no existe sin él)
      TR_ = Tabla Relación  (resuelve N:M; PK propia IDENTITY, no PK compuesta)
-
-   Compatibilidad: T-SQL estándar, sin FILESTREAM/Service Broker/CLR/
-   SQL Server Agent/Database Mail/replicación — 100% desplegable en AWS RDS.
    ════════════════════════════════════════════════════════════════════════ */
 
 -- ════════════════════════════════════════════════════════════════════════
@@ -108,11 +98,10 @@ CREATE TABLE TM_PRODUCTO (
     -- verdad para la imagen del producto). NULLABLE porque no todo producto
     -- tiene aún imagen migrada a S3.
     URLIMAGEN         VARCHAR(500)  NULL,
-    -- registroSanitario/entidadRegistro son nullable en pareja (ABET 2, HU-06):
+    -- registroSanitario/entidadRegistro son nullable en pareja:
     -- ver comentario en producto.ts "null si registroSanitario es null".
     REGISTROSANITARIO VARCHAR(50)   NULL,
     ENTIDADREGISTRO   VARCHAR(10)   NULL,
-    -- STOCK: no existía en el modelo original (el frontend nunca manejó inventario).
     -- Se agrega para soportar el descuento transaccional en la venta (usp_InsertarPedidoDetalle)
     -- y el mantenimiento de catálogo (usp_ActualizarProducto/usp_ActualizarStockProducto).
     STOCK             INT           NOT NULL DEFAULT (0),
@@ -179,18 +168,18 @@ CREATE TABLE TR_PRODUCTO_ALERGENO (
 );
 GO
 
--- HU-21: UNIQUE filtrado (no una CONSTRAINT de tabla) a propósito — el patrón de baja lógica
+-- UNIQUE filtrado (no una CONSTRAINT de tabla) a propósito — el patrón de baja lógica
 -- de esta tabla (ACTIVO=0 en vez de DELETE, ver usp_Desactivar_ProductoAlergeno_X_Producto)
 -- necesita permitir que el MISMO par (IDPRODUCTO, IDALERGENO) tenga varias filas inactivas en
 -- su historial y solo exigir unicidad entre las filas ACTIVAS. Un UNIQUE de tabla normal
 -- (versión original de este script) ignora ACTIVO y choca contra su propia fila desactivada en
--- cuanto se reselecciona el mismo alérgeno en una edición posterior — encontrado y corregido en
--- HU-21 al resincronizar productos reales contra RDS.
+-- cuanto se reselecciona el mismo alérgeno en una edición posterior — encontrado y corregido
+-- al resincronizar productos reales contra RDS.
 CREATE UNIQUE INDEX UQ_TR_PRODUCTOALERGENO_PAR ON TR_PRODUCTO_ALERGENO (IDPRODUCTO, IDALERGENO) WHERE ACTIVO = 1;
 GO
 
 -- ════════════════════════════════════════════════════════════════════════
--- SECCIÓN 4 — DIAGNÓSTICO (Quiz Cognitivo, HU-09) Y ENTIDADES HIJAS
+-- SECCIÓN 4 — DIAGNÓSTICO (Quiz Cognitivo) Y ENTIDADES HIJAS
 -- Derivada de models/diagnostico/diagnostico.ts + features/quiz/quiz.ts.
 -- Solo se persiste cuando hay sesión activa (DiagnosticoService.registrar
 -- únicamente se invoca si AuthService.sesionActiva() es true) → IDUSUARIO NOT NULL.
@@ -251,7 +240,7 @@ CREATE TABLE TR_DIAGNOSTICO_RECOMENDACION (
 GO
 
 -- ════════════════════════════════════════════════════════════════════════
--- SECCIÓN 5 — PEDIDO Y DETALLE (Carrito/Checkout, HU-11)
+-- SECCIÓN 5 — PEDIDO Y DETALLE (Carrito/Checkout)
 -- Derivada de models/pedido/pedido.ts + services/payment/payment.ts +
 -- features/checkout/checkout.ts. Checkout exige authGuard → IDUSUARIO NOT NULL.
 -- NOTA DE SEGURIDAD: numeroTarjeta (PaymentRequest) NO se persiste en ninguna
